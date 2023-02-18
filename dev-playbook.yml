@@ -1,0 +1,71 @@
+- name: Install Homebrew and Golang
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: Check if Homebrew is already installed
+      stat:
+        path: /opt/homebrew/bin/brew
+      register: b
+
+    - name: Install Homebrew
+      shell: |
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      args:
+        creates: /usr/local/bin/brew
+      when: not b.stat.exists
+
+    # install go
+    - name: Check go installed
+      shell: command -v go
+      register: go_exists
+      ignore_errors: yes
+
+    - name: Install Golang
+      community.general.homebrew:
+        name: [
+          'golang',
+        ]
+        state: present
+        update_homebrew: yes
+      when: go_exists is failed
+
+    # install rust
+    - name: check if cargo is installed
+      shell: command -v cargo
+      register: cargo_exists
+      ignore_errors: yes
+    - name: Download Installer
+      when: cargo_exists is failed
+      get_url:
+        url: https://sh.rustup.rs
+        dest: /tmp/sh.rustup.rs
+        mode: '0777'
+        force: 'yes'
+      tags:
+        - rust
+    - name: install rust/cargo
+      when: cargo_exists is failed
+      shell: /tmp/sh.rustup.rs -y
+      tags:
+        - rust
+
+    # Other homebrew packages
+    - name: Other Homebrew packages
+      community.general.homebrew:
+        name: [
+          'exa',
+          'zellij',
+          'docker',
+          'iredis',
+          'pgcli',
+          'slack',
+          'stow',
+        ]
+        state: present
+        update_homebrew: no
+    
+    - name: Apple store apps
+      shell: mas install {{ item }}
+      with_items:
+        - 1176895641 # Spark email client
